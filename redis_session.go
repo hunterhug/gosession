@@ -60,6 +60,7 @@ func NewRedisSessionAll(redisConf kv.MyRedisConf, tokenKey, userKey string, expi
 	return &RedisSession{pool: pool, tokenKey: tokenKey, userKey: userKey, expireTime: expireTime, getUserFunc: getUserInfoFunc}, nil
 }
 
+// redis single mode config
 func NewRedisSessionSingleModeConfig(redisHost string, redisDB int, redisPass string) kv.MyRedisConf {
 	return kv.MyRedisConf{
 		RedisHost:        redisHost,
@@ -71,7 +72,10 @@ func NewRedisSessionSingleModeConfig(redisHost string, redisDB int, redisPass st
 	}
 }
 
-func NewRedisSessionSentinelModeConfig(redisHost string, redisDB int, masterName string) kv.MyRedisConf {
+// redis sentinel mode config
+// redisHost is sentinel address, not redis address
+// redisPass is redis password
+func NewRedisSessionSentinelModeConfig(redisHost string, redisDB int, redisPass string, masterName string) kv.MyRedisConf {
 	return kv.MyRedisConf{
 		RedisHost:        redisHost,
 		RedisDB:          redisDB,
@@ -80,6 +84,7 @@ func NewRedisSessionSentinelModeConfig(redisHost string, redisDB int, masterName
 		RedisMaxIdle:     0,
 		IsCluster:        true,
 		MasterName:       masterName,
+		RedisPass:        redisPass,
 	}
 }
 
