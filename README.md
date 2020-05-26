@@ -39,9 +39,9 @@ type TokenManage interface {
 
 // core user info, it's Id will be the primary key store in cache database such redis
 type User struct {
-	Id                  string      `json:"id"`     // can not empty, must unique
+	Id                  string      `json:"id"`     // unique mark
 	TokenRemainLiveTime int64       `json:"-"`      // token remain live time in cache
-	Detail              interface{} `json:"detail"` // very freedom of detail what your user info, also can nil
+	Detail              interface{} `json:"detail"` // can diy your real user info by config ConfigGetUserInfoFunc()
 }
 ```
 
@@ -209,7 +209,7 @@ type TokenManage interface {
 }
 
 // 用户信息，存token在缓存里，比如redis
-// 如果ConfigGetUserInfoFunc不为nil，那么同时也会缓存该用户信息，你可以将 Detail 设置为业务的用户信息。
+// 如果有设置ConfigGetUserInfoFunc(fn GetUserInfoFunc)，那么同时也会缓存该用户信息，你可以在函数 type GetUserInfoFunc func(id string) (*User, error) 里将业务用户信息存入 Detail 并返回。
 type User struct {
 	Id                  string      `json:"id"`     // 用户标志，唯一
 	TokenRemainLiveTime int64       `json:"-"`      // token还有多少秒就过期了

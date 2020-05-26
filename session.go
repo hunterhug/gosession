@@ -26,7 +26,7 @@ type TokenManage interface {
 
 // core user info, it's Id will be the primary key store in cache database such redis
 type User struct {
-	Id                  string      `json:"id"`     // can not empty, must unique
+	Id                  string      `json:"id"`     // unique mark
 	TokenRemainLiveTime int64       `json:"-"`      // token remain live time in cache
-	Detail              interface{} `json:"detail"` // very freedom of detail what your user info, also can nil
+	Detail              interface{} `json:"detail"` // can diy your real user info by config ConfigGetUserInfoFunc()
 }

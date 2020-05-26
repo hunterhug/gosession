@@ -216,6 +216,7 @@ func (s *RedisSession) CheckTokenOrUpdateUser(token string, userInfoValidTimes i
 		if err != nil {
 			return nil, false, err
 		}
+		user.Id = id
 		user.TokenRemainLiveTime = ttl
 		return user, true, nil
 	}
@@ -266,6 +267,7 @@ func (s *RedisSession) AddUser(id string, userInfoValidTimes int64) (user *User,
 		return nil, false, err
 	}
 
+	user.Id = id
 	return user, true, nil
 }
 
