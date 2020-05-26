@@ -6,13 +6,13 @@
 package gosession
 
 import (
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/gofrs/uuid"
 	"strings"
 )
 
 // gen random uuid
 func GetGUID() (valueGUID string) {
-	objID := uuid.NewV4()
+	objID, _ := uuid.NewV4()
 	objIdStr := objID.String()
 	objIdStr = strings.Replace(objIdStr, "-", "", -1)
 	valueGUID = objIdStr
