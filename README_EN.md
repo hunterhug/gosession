@@ -1,4 +1,4 @@
-# 分布式 Session (JWT) Golang库
+# Distributed Session (JWT) Implement By Golang
 
 [![GitHub forks](https://img.shields.io/github/forks/hunterhug/gosession.svg?style=social&label=Forks)](https://github.com/hunterhug/gosession/network)
 [![GitHub stars](https://img.shields.io/github/stars/hunterhug/gosession.svg?style=social&label=Stars)](https://github.com/hunterhug/gosession/stargazers)
@@ -6,30 +6,28 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/hunterhug/gosession)](https://goreportcard.com/report/github.com/hunterhug/gosession)
 [![GitHub issues](https://img.shields.io/github/issues/hunterhug/gosession.svg)](https://github.com/hunterhug/gosession/issues)
 
-[English README](/README.md)
- 
-支持多个 Web 服务共享 Session 令牌 token，这样可以实现多个服务间共享状态。
+[中文说明](/README.md)
 
-现在 Session 令牌可以存储在：
+Support multi web service share session token, which can keep union state in many diff service.
 
-1. 单机模式的 Redis。
-2. 哨兵模式的 Redis。
-3. [待做]分片模式的 Redis。
-4. [待做]MySQL。
+Now session token can store in:
 
-## 如何使用
+1. Single mode Redis.
+2. Sentinel mode Redis.
 
-很简单，执行：
+## Usage
+
+simple get it by:
 
 ```
 go get -v github.com/hunterhug/gosession
 ```
 
-核心 API:
+core api:
 
 ```go
-// 分布式Session管理器（JWT）
-// JSON Web Token
+// jwt token manage
+// token will be put in cache database such redis and user info relate with that token will cache too
 type TokenManage interface {
 	SetToken(id string, tokenValidTimes int64) (token string, err error)                               // Set token, expire after some second
 	RefreshToken(token string, tokenValidTimes int64) error                                            // Refresh token，token expire will be again after some second
@@ -47,16 +45,15 @@ type TokenManage interface {
 	SetSingleMode() TokenManage                                                                        // Can set single mode, before one new token gen, will destroy other token
 }
 
-// 用户信息，存token在缓存里，比如redis
-// 如果有设置ConfigGetUserInfoFunc(fn GetUserInfoFunc)，那么同时也会缓存该用户信息，你可以在函数 type GetUserInfoFunc func(id string) (*User, error) 里将业务用户信息存入 Detail 并返回。
+// core user info, it's Id will be the primary key store in cache database such redis
 type User struct {
-	Id                  string      `json:"id"`     // 用户标志，唯一
-	TokenRemainLiveTime int64       `json:"-"`      // token还有多少秒就过期了
-	Detail              interface{} `json:"detail"` // 可以存放用户业务信息
+	Id                  string      `json:"id"`     // unique mark
+	TokenRemainLiveTime int64       `json:"-"`      // token remain live time in cache
+	Detail              interface{} `json:"detail"` // can diy your real user info by config ConfigGetUserInfoFunc()
 }
 ```
 
-例子：
+example:
 
 ```go
 package main
@@ -68,22 +65,22 @@ import (
 )
 
 func main() {
-	// 1. 配置Redis，目前支持单机和哨兵
+	// 1. config redis
 	redisHost := "127.0.0.1:6379"
 	redisDb := 0
-	redisPass := "hunterhug" // Redis一般是没有密码的，可以留空
+	redisPass := "hunterhug" // may redis has password
 	redisConfig := gosession.NewRedisSessionSingleModeConfig(redisHost, redisDb, redisPass)
 	// or
-	//gosession.NewRedisSessionSentinelModeConfig()
+	//gosession.NewRedisSessionSentinelModeConfig(":26379,:26380,:26381",0,"mymaster")
 
-	// 2. 连接Session管理器
+	// 2. connect redis session
 	tokenManage, err := gosession.NewRedisSession(redisConfig)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
-	// 3. 配置Session管理器，比如Token 600秒过期，以及token和用户信息key的前缀
+	// 3. config token manage
 	tokenManage.ConfigExpireTime(600)
 	tokenManage.ConfigUserKeyPrefix("go-user")
 	tokenManage.ConfigTokenKeyPrefix("go-token")
@@ -92,13 +89,13 @@ func main() {
 			Id:     id,
 			Detail: map[string]string{"detail": id},
 		}, nil
-	} // 可以设置获取用户信息的函数，如果用户没有缓存，会从该函数加载后存进redis，允许nil
+	} // get user func diy, you can set it nil
 	tokenManage.ConfigGetUserInfoFunc(fn)
-	//tokenManage.SetSingleMode() // 你可以设置单点的token
+	//tokenManage.SetSingleMode()
 
-	// 4. 为某用户设置Token
+	// 4. set token
 	id := "000001"
-	var tokenExpireTimeAlone int64 = 2 // token过期时间设置2秒
+	var tokenExpireTimeAlone int64 = 2
 
 	token, err := tokenManage.SetToken(id, tokenExpireTimeAlone)
 	if err != nil {
@@ -108,12 +105,12 @@ func main() {
 
 	fmt.Println("token:", token)
 
-	// 可以设置多个令牌
+	// can set a lot token
 	tokenManage.SetToken(id, 100)
 	tokenManage.SetToken(id, 100)
 	tokenManage.SetToken(id, 100)
 
-	// 5. 列出用户所有的令牌
+	// 5. list all token
 	tokenList, err := tokenManage.ListUserToken(id)
 	if err != nil {
 		fmt.Println("list token err:", err.Error())
@@ -121,8 +118,8 @@ func main() {
 	}
 	fmt.Println("list token:", tokenList)
 
-	// 6. 检查token是否存在，存在会返回用户信息
-	var userExpireTimeAlone int64 = 10 // 如果用户不存在并且ConfigGetUserInfoFunc!=nil，将会加载用户信息，重新放入redis
+	// 6. check token
+	var userExpireTimeAlone int64 = 10 // if ConfigGetUserInfoFunc!=nil, will load user info from func if not exist in redis cache
 	u, exist, err := tokenManage.CheckTokenOrUpdateUser(token, userExpireTimeAlone)
 	if err != nil {
 		fmt.Println("check token err:", err.Error())
@@ -145,7 +142,7 @@ func main() {
 
 	fmt.Printf("after refresh token:%#v, %#v,%#v\n", token, u, exist)
 
-	// 7. 睡眠一下，看token是不是失效了
+	// 7. sleep to see token is exist?
 	time.Sleep(10 * time.Second)
 	u, exist, err = tokenManage.CheckTokenOrUpdateUser(token, userExpireTimeAlone)
 	if err != nil {
@@ -155,7 +152,7 @@ func main() {
 
 	fmt.Printf("sleep check token:%#v, %#v,%#v\n", token, u, exist)
 
-	// 可以删除用户的所有令牌
+	// you can delete all token of one user
 	tokenList, err = tokenManage.ListUserToken(id)
 	if err != nil {
 		fmt.Println("sleep list token err:", err.Error())
