@@ -6,7 +6,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/hunterhug/gosession)](https://goreportcard.com/report/github.com/hunterhug/gosession)
 [![GitHub issues](https://img.shields.io/github/issues/hunterhug/gosession.svg)](https://github.com/hunterhug/gosession/issues)
 
-[中文说明](/README.md)
+[中文说明](/README_ZH.md)
 
 Support multi web service share session token, which can keep union state in many diff service.
 
