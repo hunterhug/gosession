@@ -1,4 +1,4 @@
-# Distributed Session (JWT) Implement By Golang
+# Distributed Session Implement By Golang
 
 [![GitHub forks](https://img.shields.io/github/forks/hunterhug/gosession.svg?style=social&label=Forks)](https://github.com/hunterhug/gosession/network)
 [![GitHub stars](https://img.shields.io/github/stars/hunterhug/gosession.svg?style=social&label=Stars)](https://github.com/hunterhug/gosession/stargazers)
@@ -26,7 +26,7 @@ go get -v github.com/hunterhug/gosession
 core api:
 
 ```go
-// jwt token manage
+// token manage
 // token will be put in cache database such redis and user info relate with that token will cache too
 type TokenManage interface {
 	SetToken(id string, tokenValidTimes int64) (token string, err error)                               // Set token, expire after some second
