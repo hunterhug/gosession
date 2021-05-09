@@ -1,4 +1,4 @@
-# 分布式 Session (JWT) Golang库
+# 分布式 Session Golang库
 
 [![GitHub forks](https://img.shields.io/github/forks/hunterhug/gosession.svg?style=social&label=Forks)](https://github.com/hunterhug/gosession/network)
 [![GitHub stars](https://img.shields.io/github/stars/hunterhug/gosession.svg?style=social&label=Stars)](https://github.com/hunterhug/gosession/stargazers)
@@ -27,8 +27,8 @@ go get -v github.com/hunterhug/gosession
 核心 API:
 
 ```go
-// 分布式Session管理器（JWT）
-// JSON Web Token
+// 分布式Session管理
+// Token
 type TokenManage interface {
 	SetToken(id string, tokenValidTimes int64) (token string, err error)                               // Set token, expire after some second
 	RefreshToken(token string, tokenValidTimes int64) error                                            // Refresh token，token expire will be again after some second
