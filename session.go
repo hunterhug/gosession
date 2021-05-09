@@ -5,7 +5,7 @@
 */
 package gosession
 
-// jwt token manage
+// token manage
 // token will be put in cache database such redis and user info relate with that token will cache too
 type TokenManage interface {
 	SetToken(id string, tokenValidTimes int64) (token string, err error)                               // Set token, expire after some second
