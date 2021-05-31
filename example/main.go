@@ -10,7 +10,7 @@ func main() {
 	// 1. config redis
 	redisHost := "127.0.0.1:6379"
 	redisDb := 0
-	redisPass := "hunterhug" // may redis has password
+	redisPass := "root" // may redis has password
 	redisConfig := gosession.NewRedisSessionSingleModeConfig(redisHost, redisDb, redisPass)
 	// or
 	//gosession.NewRedisSessionSentinelModeConfig(":26379,:26380,:26381",0,"mymaster")

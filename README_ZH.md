@@ -14,7 +14,6 @@
 
 1. 单机模式的 Redis。
 2. 哨兵模式的 Redis。
-3. [待做]分片模式的 Redis。
 
 ## 如何使用
 
@@ -32,7 +31,7 @@ go get -v github.com/hunterhug/gosession
 type TokenManage interface {
 	SetToken(id string, tokenValidTimes int64) (token string, err error)                               // Set token, expire after some second
 	RefreshToken(token string, tokenValidTimes int64) error                                            // Refresh token，token expire will be again after some second
-	DeleteToken(token string) error                    vim                                                // Delete token when you do action such logout
+	DeleteToken(token string) error                                                                    // Delete token when you do action such logout
 	CheckTokenOrUpdateUser(token string, userInfoValidTimes int64) (user *User, exist bool, err error) // Check the token, when cache database exist return user info directly, others hit the persistent database and save newest user in cache database then return. such redis check, not check load from mysql.
 	ListUserToken(id string) ([]string, error)                                                         // List all token of one user
 	DeleteUserToken(id string) error                                                                   // Delete all token of this user

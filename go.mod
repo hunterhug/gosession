@@ -1,6 +1,6 @@
 module github.com/hunterhug/gosession
 
-go 1.13
+go 1.15
 
 require (
 	github.com/gofrs/uuid v3.3.0+incompatible
