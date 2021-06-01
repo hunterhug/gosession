@@ -7,6 +7,7 @@ package gosession
 
 import (
 	uuid "github.com/gofrs/uuid"
+	"strconv"
 	"strings"
 )
 
@@ -17,4 +18,9 @@ func GetGUID() (valueGUID string) {
 	objIdStr = strings.Replace(objIdStr, "-", "", -1)
 	valueGUID = objIdStr
 	return valueGUID
+}
+
+func SI(s string) (i int64) {
+	i, _ = strconv.ParseInt(s, 10, 64)
+	return
 }

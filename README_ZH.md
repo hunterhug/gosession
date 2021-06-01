@@ -13,7 +13,7 @@
 现在 Session 令牌可以存储在：
 
 1. 单机模式的 Redis。
-2. 哨兵模式的 Redis。
+2. 哨兵模式的 Redis。什么是哨兵，我们知道 Redis 有主从复制的功能，主服务器提供服务，从服务器作为数据同步来进行备份。当主服务器挂掉时，哨兵可以将从服务器提升到主角色。
 
 ## 如何使用
 
@@ -29,20 +29,20 @@ go get -v github.com/hunterhug/gosession
 // 分布式Session管理
 // Token
 type TokenManage interface {
-	SetToken(id string, tokenValidTimes int64) (token string, err error)                               // Set token, expire after some second
-	RefreshToken(token string, tokenValidTimes int64) error                                            // Refresh token，token expire will be again after some second
-	DeleteToken(token string) error                                                                    // Delete token when you do action such logout
-	CheckTokenOrUpdateUser(token string, userInfoValidTimes int64) (user *User, exist bool, err error) // Check the token, when cache database exist return user info directly, others hit the persistent database and save newest user in cache database then return. such redis check, not check load from mysql.
-	ListUserToken(id string) ([]string, error)                                                         // List all token of one user
-	DeleteUserToken(id string) error                                                                   // Delete all token of this user
-	RefreshUser(id []string, userInfoValidTimes int64) error                                           // Refresh cache of user info batch
-	DeleteUser(id string) error                                                                        // Delete user info in cache
-	AddUser(id string, userInfoValidTimes int64) (user *User, exist bool, err error)                   // Add the user info to cache，expire after some second
-	ConfigTokenKeyPrefix(tokenKey string) TokenManage                                                  // Config chain, just cache key prefix
-	ConfigUserKeyPrefix(userKey string) TokenManage                                                    // Config chain, just cache key prefix
-	ConfigExpireTime(second int64) TokenManage                                                         // Config chain, token expire after second
-	ConfigGetUserInfoFunc(fn GetUserInfoFunc) TokenManage                                              // Config chain, when cache not found user info, will load from this func
-	SetSingleMode() TokenManage                                                                        // Can set single mode, before one new token gen, will destroy other token
+	SetToken(id string, tokenValidTimes int64) (token string, err error)                               // 设置令牌，传入用户ID和令牌过期时间，单位秒，会生成一个Token返回，登录时可以调用
+	RefreshToken(token string, tokenValidTimes int64) error                                            // 刷新令牌过期时间，令牌会继续存活
+	DeleteToken(token string) error                                                                    // 删除令牌，退出登录时可以调用
+	CheckTokenOrUpdateUser(token string, userInfoValidTimes int64) (user *User, exist bool, err error) // 检查令牌是否存在（检查会话是否存在），并缓存用户信息，如果有的话，默认不更新用户信息，可设置ConfigGetUserInfoFunc
+	ListUserToken(id string) ([]string, error)                                                         // 列出用户的所有令牌
+	DeleteUserToken(id string) error                                                                   // 删除用户的所有令牌
+	RefreshUser(id []string, userInfoValidTimes int64) error                                           // 批量刷新用户信息，如果有的话，默认不缓存用户信息，可设置ConfigGetUserInfoFunc
+	DeleteUser(id string) error                                                                        // 删除用户信息，默认不缓存用户信息，可设置ConfigGetUserInfoFunc
+	AddUser(id string, userInfoValidTimes int64) (user *User, exist bool, err error)                   // 新增缓存用户信息，默认不缓存用户信息，可设置ConfigGetUserInfoFunc
+	ConfigTokenKeyPrefix(tokenKey string) TokenManage                                                  // 设置令牌前缀
+	ConfigUserKeyPrefix(userKey string) TokenManage                                                    // 设置用户信息前缀，默认不缓存用户信息，可设置ConfigGetUserInfoFunc
+	ConfigDefaultExpireTime(second int64) TokenManage                                                  // 设置令牌默认过期时间
+	ConfigGetUserInfoFunc(fn GetUserInfoFunc) TokenManage                                              // 设置获取用户信息的函数
+	SetSingleMode() TokenManage                                                                        // 是否独占单点登录，新生成一个令牌，会挤掉其他令牌
 }
 
 // 用户信息，存token在缓存里，比如redis
@@ -82,7 +82,7 @@ func main() {
 	}
 
 	// 3. 配置Session管理器，比如Token 600秒过期，以及token和用户信息key的前缀
-	tokenManage.ConfigExpireTime(600)
+	tokenManage.ConfigDefaultExpireTime(600)
 	tokenManage.ConfigUserKeyPrefix("go-user")
 	tokenManage.ConfigTokenKeyPrefix("go-token")
 	fn := func(id string) (user *gosession.User, err error) {

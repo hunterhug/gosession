@@ -12,17 +12,21 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/hunterhug/gosession/kv"
 	"strings"
+	"time"
 )
 
 var (
 	// default prefix of token key
-	tokenKeyDefault = "gt"
+	tokenKeyDefault = "go-t"
 	// default prefix of user key
-	userKeyDefault = "gu"
+	userKeyDefault = "go-u"
 	// default key expire second
 	expireTimeDefault int64 = 3600 * 24 * 7
 	// default get user info func
 	getUserInfoFuncDefault = func(id string) (*User, error) { return &User{Id: id}, nil }
+
+	// list all token, hash key expire
+	TokenMapKeyExpireTime int64 = 3600 * 24 * 30
 )
 
 // func get user info from where
@@ -44,7 +48,7 @@ func NewRedisSession(redisConf kv.MyRedisConf) (TokenManage, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &RedisSession{pool: pool, tokenKey: tokenKeyDefault, userKey: userKeyDefault, expireTime: expireTimeDefault, getUserFunc: getUserInfoFuncDefault}, nil
+	return &RedisSession{pool: pool, tokenKey: tokenKeyDefault, userKey: userKeyDefault, expireTime: expireTimeDefault, getUserFunc: nil}, nil
 }
 
 // new a redis session, config all
@@ -57,6 +61,10 @@ func NewRedisSessionAll(redisConf kv.MyRedisConf, tokenKey, userKey string, expi
 
 	tokenKey = strings.Replace(tokenKey, "_", "-", -1)
 	userKey = strings.Replace(userKey, "_", "-", -1)
+
+	if expireTime <= 0 {
+		expireTime = expireTimeDefault
+	}
 	return &RedisSession{pool: pool, tokenKey: tokenKey, userKey: userKey, expireTime: expireTime, getUserFunc: getUserInfoFunc}, nil
 }
 
@@ -67,8 +75,8 @@ func NewRedisSessionSingleModeConfig(redisHost string, redisDB int, redisPass st
 		RedisPass:        redisPass,
 		RedisDB:          redisDB,
 		RedisIdleTimeout: 15,
-		RedisMaxActive:   0,
-		RedisMaxIdle:     0,
+		RedisMaxActive:   20,
+		RedisMaxIdle:     30,
 	}
 }
 
@@ -80,8 +88,8 @@ func NewRedisSessionSentinelModeConfig(redisHost string, redisDB int, redisPass 
 		RedisHost:        redisHost,
 		RedisDB:          redisDB,
 		RedisIdleTimeout: 15,
-		RedisMaxActive:   0,
-		RedisMaxIdle:     0,
+		RedisMaxActive:   20,
+		RedisMaxIdle:     30,
 		IsCluster:        true,
 		MasterName:       masterName,
 		RedisPass:        redisPass,
@@ -103,7 +111,7 @@ func (s *RedisSession) ConfigUserKeyPrefix(userKey string) TokenManage {
 }
 
 // config by chain
-func (s *RedisSession) ConfigExpireTime(second int64) TokenManage {
+func (s *RedisSession) ConfigDefaultExpireTime(second int64) TokenManage {
 	if second <= 0 {
 		return s
 	}
@@ -147,12 +155,41 @@ func (s *RedisSession) SetToken(id string, tokenValidTimes int64) (token string,
 			return
 		}
 	}
+
 	// relate token and user in redis
-	err = s.set(s.hashTokenKey(token), []byte(userKey), tokenValidTimes)
+	conn := s.pool.Get()
+	if conn.Err() != nil {
+		err = conn.Err()
+		return
+	}
+
+	defer conn.Close()
+	err = conn.Send("MULTI")
 	if err != nil {
 		return
 	}
 
+	if tokenValidTimes <= 0 {
+		tokenValidTimes = s.expireTime
+	}
+
+	err = conn.Send("SETEX", s.hashTokenKey(token), tokenValidTimes, []byte(userKey))
+	if err != nil {
+		return
+	}
+
+	tokenMapKey := s.userTokenMapKey(id)
+	err = conn.Send("HSET", tokenMapKey, token, time.Now().Unix()+tokenValidTimes)
+	if err != nil {
+		return
+	}
+
+	err = conn.Send("EXPIRE", tokenMapKey, TokenMapKeyExpireTime)
+	if err != nil {
+		return
+	}
+
+	_, err = conn.Do("EXEC")
 	return token, nil
 }
 
@@ -162,8 +199,54 @@ func (s *RedisSession) RefreshToken(token string, tokenValidTimes int64) (err er
 		err = errors.New("token empty")
 		return
 	}
-	// simple and rude
-	return s.expire(s.hashTokenKey(token), tokenValidTimes)
+
+	temp := strings.Split(token, "_")
+	if len(temp) < 2 || temp[0] == "" {
+		err = errors.New("token wrong")
+		return
+	}
+
+	id := temp[0]
+
+	conn := s.pool.Get()
+	if conn.Err() != nil {
+		err = conn.Err()
+		return
+	}
+
+	defer conn.Close()
+	err = conn.Send("MULTI")
+	if err != nil {
+		return
+	}
+
+	if tokenValidTimes <= 0 {
+		tokenValidTimes = s.expireTime
+	}
+
+	err = conn.Send("EXPIRE", s.hashTokenKey(token), tokenValidTimes)
+	if err != nil {
+		return
+	}
+
+	tokenMapKey := s.userTokenMapKey(id)
+
+	err = conn.Send("HSET", tokenMapKey, token, time.Now().Unix()+tokenValidTimes)
+	if err != nil {
+		return
+	}
+
+	err = conn.Send("EXPIRE", tokenMapKey, TokenMapKeyExpireTime)
+	if err != nil {
+		return
+	}
+
+	_, err = conn.Do("EXEC")
+	if err != nil {
+		return
+	}
+
+	return
 }
 
 // Delete token when you do action such logout
@@ -172,7 +255,57 @@ func (s *RedisSession) DeleteToken(token string) (err error) {
 		err = errors.New("token empty")
 		return
 	}
-	return s.delete(s.hashTokenKey(token))
+
+	temp := strings.Split(token, "_")
+	if len(temp) < 2 || temp[0] == "" {
+		err = errors.New("token wrong")
+		return
+	}
+
+	conn := s.pool.Get()
+	if conn.Err() != nil {
+		err = conn.Err()
+		return
+	}
+
+	defer conn.Close()
+
+	return s.deleteToken(conn, temp[0], token)
+}
+
+func (s *RedisSession) deleteToken(conn redis.Conn, id string, token string) (err error) {
+	if token == "" {
+		err = errors.New("token empty")
+		return
+	}
+
+	if id == "" {
+		temp := strings.Split(token, "_")
+		if len(temp) < 2 || temp[0] == "" {
+			err = errors.New("token wrong")
+			return
+		}
+
+		id = temp[0]
+	}
+
+	err = conn.Send("MULTI")
+	if err != nil {
+		return err
+	}
+
+	err = conn.Send("DEL", s.hashTokenKey(token))
+	if err != nil {
+		return err
+	}
+
+	err = conn.Send("HDEL", s.userTokenMapKey(id), token)
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.Do("EXEC")
+	return err
 }
 
 // Check the token, when cache database exist return user info directly,
@@ -184,23 +317,34 @@ func (s *RedisSession) CheckTokenOrUpdateUser(token string, userInfoValidTimes i
 		return
 	}
 
+	temp := strings.Split(token, "_")
+	if len(temp) < 2 || temp[0] == "" {
+		err = errors.New("token wrong")
+		return
+	}
+
+	id := temp[0]
+
 	// get user key
 	value, ttl, exist, err := s.get(s.hashTokenKey(token))
 	if err != nil {
 		return nil, false, err
 	}
 
-	if !exist {
+	if !exist || ttl <= 1 {
+		err = s.deleteMap(s.userTokenMapKey(id), token)
+		if err != nil {
+			return nil, false, err
+		}
 		return nil, false, nil
 	}
 
 	// get user id from user key
 	userKey := string(value)
-	temp := strings.Split(userKey, "_")
-	if len(temp) != 2 || temp[0] != s.userKey {
+	temp = strings.Split(userKey, "_")
+	if len(temp) != 2 || temp[0] != s.userKey || temp[1] != id {
 		return nil, false, errors.New("user key invalid")
 	}
-	id := temp[1]
 
 	if s.getUserFunc == nil {
 		user = new(User)
@@ -208,6 +352,7 @@ func (s *RedisSession) CheckTokenOrUpdateUser(token string, userInfoValidTimes i
 		user.TokenRemainLiveTime = ttl
 		return user, true, nil
 	}
+
 	// get user info by user key
 	value, _, exist, err = s.get(userKey)
 	if err != nil {
@@ -257,6 +402,11 @@ func (s *RedisSession) AddUser(id string, userInfoValidTimes int64) (user *User,
 		return nil, false, err
 	}
 
+	if user == nil {
+		user = new(User)
+		user.Id = id
+	}
+
 	// gen user key
 	userKey := s.hashUserKey(user.Id)
 
@@ -294,15 +444,45 @@ func (s *RedisSession) DeleteUserToken(id string) (err error) {
 		err = errors.New("user id empty")
 		return
 	}
-	result, exist, err := s.keys(s.userTokenKeys(id))
-	if err == nil && exist {
+
+	tokenMapKey := s.userTokenMapKey(id)
+
+	result, exist, err := s.tokenKeys(tokenMapKey)
+	if err != nil {
+		return err
+	}
+
+	if exist && len(result) > 0 {
+
+		conn := s.pool.Get()
+		if conn.Err() != nil {
+			err = conn.Err()
+			return
+		}
+
+		defer conn.Close()
+
+		err = conn.Send("MULTI")
+		if err != nil {
+			return err
+		}
+
 		for _, v := range result {
-			otherE := s.delete(v)
-			if otherE != nil {
-				return otherE
+			err = conn.Send("DEL", s.hashTokenKey(v))
+			if err != nil {
+				return err
+			}
+
+			err = conn.Send("HDEL", tokenMapKey, v)
+			if err != nil {
+				return err
 			}
 		}
+
+		_, err = conn.Do("EXEC")
+		return err
 	}
+
 	return
 }
 
@@ -312,7 +492,7 @@ func (s *RedisSession) ListUserToken(id string) ([]string, error) {
 		err := errors.New("user id empty")
 		return nil, err
 	}
-	result, _, err := s.keys(s.userTokenKeys(id))
+	result, _, err := s.tokenKeys(s.userTokenMapKey(id))
 	if err != nil {
 		return nil, err
 	}
@@ -342,6 +522,7 @@ func (s *RedisSession) set(key string, value []byte, expireSecond int64) (err er
 	if err != nil {
 		return err
 	}
+
 	err = conn.Send("SET", key, value)
 	if err != nil {
 		return err
@@ -351,10 +532,12 @@ func (s *RedisSession) set(key string, value []byte, expireSecond int64) (err er
 	if expireSecond <= 0 {
 		expireSecond = s.expireTime
 	}
+
 	err = conn.Send("EXPIRE", key, expireSecond)
 	if err != nil {
 		return err
 	}
+
 	_, err = conn.Do("EXEC")
 	return
 }
@@ -372,8 +555,7 @@ func (s *RedisSession) delete(key string) (err error) {
 	return err
 }
 
-// help func to long redis key expire time
-func (s *RedisSession) expire(key string, expireSecond int64) (err error) {
+func (s *RedisSession) deleteMap(key, subKey string) (err error) {
 	conn := s.pool.Get()
 	if conn.Err() != nil {
 		err = conn.Err()
@@ -381,15 +563,16 @@ func (s *RedisSession) expire(key string, expireSecond int64) (err error) {
 	}
 
 	defer conn.Close()
-	if expireSecond <= 0 {
-		expireSecond = s.expireTime
-	}
-	_, err = conn.Do("EXPIRE", key, expireSecond)
+	_, err = conn.Do("HDEL", key, subKey)
 	return err
 }
 
-// help func to keys redis
-func (s *RedisSession) keys(pattern string) (result []string, exist bool, err error) {
+func (s *RedisSession) deleteMapWithConn(conn redis.Conn, key, subKey string) (err error) {
+	_, err = conn.Do("HDEL", key, subKey)
+	return err
+}
+
+func (s *RedisSession) tokenKeys(pattern string) (result []string, exist bool, err error) {
 	conn := s.pool.Get()
 	if conn.Err() != nil {
 		err = conn.Err()
@@ -397,7 +580,8 @@ func (s *RedisSession) keys(pattern string) (result []string, exist bool, err er
 	}
 
 	defer conn.Close()
-	keys, err := redis.ByteSlices(conn.Do("KEYS", pattern))
+
+	keys, err := redis.StringMap(conn.Do("HGETALL", pattern))
 	if err == redis.ErrNil {
 		return nil, false, nil
 	} else if err != nil {
@@ -406,7 +590,17 @@ func (s *RedisSession) keys(pattern string) (result []string, exist bool, err er
 
 	result = make([]string, len(keys))
 	for k, v := range keys {
-		result[k] = string(v)
+
+		if SI(v) <= time.Now().Unix() {
+			err = s.deleteMapWithConn(conn, pattern, k)
+			if err != nil {
+				return nil, false, err
+			}
+
+			continue
+		} else {
+		}
+		result = append(result, k)
 	}
 	return result, true, nil
 }
@@ -452,7 +646,7 @@ func (s *RedisSession) hashUserKey(id string) string {
 	return fmt.Sprintf("%s_%s", s.userKey, id)
 }
 
-// in order to keys all token of one use
-func (s *RedisSession) userTokenKeys(id string) string {
-	return fmt.Sprintf("%s_%s_*", s.tokenKey, id)
+// hash map key which struct store all token
+func (s *RedisSession) userTokenMapKey(id string) string {
+	return fmt.Sprintf("%s_%s", s.tokenKey, id)
 }

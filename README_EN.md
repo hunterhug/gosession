@@ -40,7 +40,7 @@ type TokenManage interface {
 	AddUser(id string, userInfoValidTimes int64) (user *User, exist bool, err error)                   // Add the user info to cache，expire after some second
 	ConfigTokenKeyPrefix(tokenKey string) TokenManage                                                  // Config chain, just cache key prefix
 	ConfigUserKeyPrefix(userKey string) TokenManage                                                    // Config chain, just cache key prefix
-	ConfigExpireTime(second int64) TokenManage                                                         // Config chain, token expire after second
+	ConfigDefaultExpireTime(second int64) TokenManage                                                  // Config chain, token expire after second
 	ConfigGetUserInfoFunc(fn GetUserInfoFunc) TokenManage                                              // Config chain, when cache not found user info, will load from this func
 	SetSingleMode() TokenManage                                                                        // Can set single mode, before one new token gen, will destroy other token
 }
@@ -81,7 +81,7 @@ func main() {
 	}
 
 	// 3. config token manage
-	tokenManage.ConfigExpireTime(600)
+	tokenManage.ConfigDefaultExpireTime(600)
 	tokenManage.ConfigUserKeyPrefix("go-user")
 	tokenManage.ConfigTokenKeyPrefix("go-token")
 	fn := func(id string) (user *gosession.User, err error) {

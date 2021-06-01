@@ -81,7 +81,7 @@ func main() {
 	}
 
 	// 3. config token manage
-	tokenManage.ConfigExpireTime(600)
+	tokenManage.ConfigDefaultExpireTime(600)
 	tokenManage.ConfigUserKeyPrefix("go-user")
 	tokenManage.ConfigTokenKeyPrefix("go-token")
 	fn := func(id string) (user *gosession.User, err error) {
