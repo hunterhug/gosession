@@ -51,6 +51,11 @@ func NewRedisSession(redisConf kv.MyRedisConf) (TokenManage, error) {
 	return &RedisSession{pool: pool, tokenKey: tokenKeyDefault, userKey: userKeyDefault, expireTime: expireTimeDefault, getUserFunc: nil}, nil
 }
 
+// new a redis session by redis pool
+func NewRedisSessionWithPool(pool *redis.Pool) TokenManage {
+	return &RedisSession{pool: pool, tokenKey: tokenKeyDefault, userKey: userKeyDefault, expireTime: expireTimeDefault, getUserFunc: nil}
+}
+
 // new a redis session, config all
 // define prefix of token and user key
 func NewRedisSessionAll(redisConf kv.MyRedisConf, tokenKey, userKey string, expireTime int64, getUserInfoFunc GetUserInfoFunc) (TokenManage, error) {
