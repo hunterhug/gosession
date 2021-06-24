@@ -184,6 +184,7 @@ func (s *RedisSession) SetToken(id string, tokenValidTimes int64) (token string,
 	}
 
 	tokenMapKey := s.userTokenMapKey(id)
+
 	err = conn.Send("HSET", tokenMapKey, token, time.Now().Unix()+tokenValidTimes)
 	if err != nil {
 		return
@@ -635,6 +636,8 @@ func (s *RedisSession) get(key string) (value []byte, ttl int64, exist bool, err
 		return
 	}
 
+	defer conn.Close()
+
 	value, err = redis.Bytes(conn.Do("GET", key))
 	if err == redis.ErrNil {
 		return nil, 0, false, nil
@@ -659,6 +662,8 @@ func (s *RedisSession) hGet(key, subKey string) (value int64, exist bool, err er
 		err = conn.Err()
 		return
 	}
+
+	defer conn.Close()
 
 	value, err = redis.Int64(conn.Do("HGET", key, subKey))
 	if err == redis.ErrNil {
