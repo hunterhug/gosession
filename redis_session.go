@@ -336,12 +336,19 @@ func (s *RedisSession) CheckTokenOrUpdateUser(token string, userInfoValidTimes i
 		return nil, false, err
 	}
 
+	tokenMapKey := s.userTokenMapKey(id)
+
 	if !exist || ttl <= 1 {
-		err = s.deleteMap(s.userTokenMapKey(id), token)
+		err = s.deleteMap(tokenMapKey, token)
 		if err != nil {
 			return nil, false, err
 		}
 		return nil, false, nil
+	}
+
+	expireTime, exist, err := s.hGet(tokenMapKey, token)
+	if err != nil {
+		return nil, false, err
 	}
 
 	// get user id from user key
@@ -351,10 +358,12 @@ func (s *RedisSession) CheckTokenOrUpdateUser(token string, userInfoValidTimes i
 		return nil, false, errors.New("user key invalid")
 	}
 
-	if s.getUserFunc == nil {
+	if s.getUserFunc == nil || userInfoValidTimes < 0 {
 		user = new(User)
 		user.Id = id
 		user.TokenRemainLiveTime = ttl
+		user.Token = token
+		user.TokenExpireTime = expireTime
 		return user, true, nil
 	}
 
@@ -373,6 +382,8 @@ func (s *RedisSession) CheckTokenOrUpdateUser(token string, userInfoValidTimes i
 		}
 		user.Id = id
 		user.TokenRemainLiveTime = ttl
+		user.Token = token
+		user.TokenExpireTime = expireTime
 		return user, true, nil
 	}
 
@@ -387,7 +398,13 @@ func (s *RedisSession) CheckTokenOrUpdateUser(token string, userInfoValidTimes i
 	}
 
 	user.TokenRemainLiveTime = ttl
+	user.Token = token
+	user.TokenExpireTime = expireTime
 	return user, true, nil
+}
+
+func (s *RedisSession) CheckToken(token string) (user *User, exist bool, err error) {
+	return s.CheckTokenOrUpdateUser(token, -1)
 }
 
 // Add the user info to cache，expire after some second
@@ -633,6 +650,24 @@ func (s *RedisSession) get(key string) (value []byte, ttl int64, exist bool, err
 	}
 
 	return value, ttl, true, nil
+}
+
+// help func to hGet redis key
+func (s *RedisSession) hGet(key, subKey string) (value int64, exist bool, err error) {
+	conn := s.pool.Get()
+	if conn.Err() != nil {
+		err = conn.Err()
+		return
+	}
+
+	value, err = redis.Int64(conn.Do("HGET", key, subKey))
+	if err == redis.ErrNil {
+		return 0, false, nil
+	} else if err != nil {
+		return 0, false, err
+	}
+
+	return value, true, nil
 }
 
 // gen token, will random gen string

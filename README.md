@@ -32,6 +32,7 @@ type TokenManage interface {
 	SetToken(id string, tokenValidTimes int64) (token string, err error)                               // Set token, expire after some second
 	RefreshToken(token string, tokenValidTimes int64) error                                            // Refresh token，token expire will be again after some second
 	DeleteToken(token string) error                                                                    // Delete token when you do action such logout
+	CheckToken(token string) (user *User, exist bool, err error)                                       // Check the token,  but not refresh user info cache
 	CheckTokenOrUpdateUser(token string, userInfoValidTimes int64) (user *User, exist bool, err error) // Check the token, when cache database exist return user info directly, others hit the persistent database and save newest user in cache database then return. such redis check, not check load from mysql.
 	ListUserToken(id string) ([]string, error)                                                         // List all token of one user
 	DeleteUserToken(id string) error                                                                   // Delete all token of this user

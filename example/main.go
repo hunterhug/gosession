@@ -10,7 +10,7 @@ func main() {
 	// 1. config redis
 	redisHost := "127.0.0.1:6379"
 	redisDb := 0
-	redisPass := "root" // may redis has password
+	redisPass := "123456789" // may redis has password
 	redisConfig := gosession.NewRedisSessionSingleModeConfig(redisHost, redisDb, redisPass)
 	// or
 	//gosession.NewRedisSessionSentinelModeConfig(":26379,:26380,:26381",0,"mymaster")
@@ -100,6 +100,8 @@ func main() {
 		return
 	}
 	fmt.Println("sleep token:", tokenList)
+
+	time.Sleep(10 * time.Minute)
 
 	err = tokenManage.DeleteUserToken(id)
 	if err != nil {

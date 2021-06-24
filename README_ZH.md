@@ -6,7 +6,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/hunterhug/gosession)](https://goreportcard.com/report/github.com/hunterhug/gosession)
 [![GitHub issues](https://img.shields.io/github/issues/hunterhug/gosession.svg)](https://github.com/hunterhug/gosession/issues)
 
-[English README](/README_EN.md)
+[English README](/README.md)
  
 支持多个 `Web` 服务共享 `Session` 令牌 `token`，这样可以实现多个服务间共享状态。
 
@@ -32,6 +32,7 @@ type TokenManage interface {
 	SetToken(id string, tokenValidTimes int64) (token string, err error)                               // 设置令牌，传入用户ID和令牌过期时间，单位秒，会生成一个Token返回，登录时可以调用
 	RefreshToken(token string, tokenValidTimes int64) error                                            // 刷新令牌过期时间，令牌会继续存活
 	DeleteToken(token string) error                                                                    // 删除令牌，退出登录时可以调用
+	CheckToken(token string) (user *User, exist bool, err error)                                       // 检查令牌是否存在（检查会话是否存在）
 	CheckTokenOrUpdateUser(token string, userInfoValidTimes int64) (user *User, exist bool, err error) // 检查令牌是否存在（检查会话是否存在），并缓存用户信息，如果有的话，默认不更新用户信息，可设置ConfigGetUserInfoFunc
 	ListUserToken(id string) ([]string, error)                                                         // 列出用户的所有令牌
 	DeleteUserToken(id string) error                                                                   // 删除用户的所有令牌
