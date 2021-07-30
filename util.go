@@ -6,12 +6,12 @@
 package gosession
 
 import (
-	uuid "github.com/gofrs/uuid"
+	"github.com/gofrs/uuid"
 	"strconv"
 	"strings"
 )
 
-// gen random uuid
+// GetGUID gen random uuid
 func GetGUID() (valueGUID string) {
 	objID, _ := uuid.NewV4()
 	objIdStr := objID.String()

@@ -5,7 +5,7 @@
 */
 package gosession
 
-// token manage
+// TokenManage token manage
 // token will be put in cache database such redis and user info relate with that token will cache too
 type TokenManage interface {
 	SetToken(id string, tokenValidTimes int64) (token string, err error)                                // Set token, expire after some second
@@ -25,7 +25,7 @@ type TokenManage interface {
 	SetSingleMode() TokenManage                                                                         // Can set single mode, before one new token gen, will destroy other token
 }
 
-// core user info, it's Id will be the primary key store in cache database such redis
+// User core user info, it's Id will be the primary key store in cache database such redis
 type User struct {
 	Id                  string      `json:"id"`     // unique mark
 	TokenRemainLiveTime int64       `json:"-"`      // token remain live time in cache

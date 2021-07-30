@@ -25,14 +25,14 @@ var (
 	// default get user info func
 	getUserInfoFuncDefault = func(id string) (*User, error) { return &User{Id: id}, nil }
 
-	// list all token, hash key expire
+	// TokenMapKeyExpireTime list all token, hash key expire
 	TokenMapKeyExpireTime int64 = 3600 * 24 * 30
 )
 
-// func get user info from where
+// GetUserInfoFunc func get user info from where
 type GetUserInfoFunc func(id string) (*User, error)
 
-// session by redis
+// RedisSession session by redis
 type RedisSession struct {
 	pool         *redis.Pool                    // redis pool can single mode or other mode
 	getUserFunc  func(id string) (*User, error) // when not hit cache will get user from this func
@@ -42,7 +42,7 @@ type RedisSession struct {
 	isSingleMode bool                           // is single token, new token will destroy other token
 }
 
-// new a redis session
+// NewRedisSession new a redis session
 func NewRedisSession(redisConf kv.MyRedisConf) (TokenManage, error) {
 	pool, err := kv.NewRedis(&redisConf)
 	if err != nil {
@@ -51,12 +51,12 @@ func NewRedisSession(redisConf kv.MyRedisConf) (TokenManage, error) {
 	return &RedisSession{pool: pool, tokenKey: tokenKeyDefault, userKey: userKeyDefault, expireTime: expireTimeDefault, getUserFunc: nil}, nil
 }
 
-// new a redis session by redis pool
+// NewRedisSessionWithPool new a redis session by redis pool
 func NewRedisSessionWithPool(pool *redis.Pool) TokenManage {
 	return &RedisSession{pool: pool, tokenKey: tokenKeyDefault, userKey: userKeyDefault, expireTime: expireTimeDefault, getUserFunc: nil}
 }
 
-// new a redis session, config all
+// NewRedisSessionAll new a redis session, config all
 // define prefix of token and user key
 func NewRedisSessionAll(redisConf kv.MyRedisConf, tokenKey, userKey string, expireTime int64, getUserInfoFunc GetUserInfoFunc) (TokenManage, error) {
 	pool, err := kv.NewRedis(&redisConf)
@@ -73,7 +73,7 @@ func NewRedisSessionAll(redisConf kv.MyRedisConf, tokenKey, userKey string, expi
 	return &RedisSession{pool: pool, tokenKey: tokenKey, userKey: userKey, expireTime: expireTime, getUserFunc: getUserInfoFunc}, nil
 }
 
-// redis single mode config
+// NewRedisSessionSingleModeConfig redis single mode config
 func NewRedisSessionSingleModeConfig(redisHost string, redisDB int, redisPass string) kv.MyRedisConf {
 	return kv.MyRedisConf{
 		RedisHost:        redisHost,
@@ -85,7 +85,7 @@ func NewRedisSessionSingleModeConfig(redisHost string, redisDB int, redisPass st
 	}
 }
 
-// redis sentinel mode config
+// NewRedisSessionSentinelModeConfig redis sentinel mode config
 // redisHost is sentinel address, not redis address
 // redisPass is redis password
 func NewRedisSessionSentinelModeConfig(redisHost string, redisDB int, redisPass string, masterName string) kv.MyRedisConf {
@@ -101,21 +101,21 @@ func NewRedisSessionSentinelModeConfig(redisHost string, redisDB int, redisPass 
 	}
 }
 
-// config by chain
+// ConfigTokenKeyPrefix config by chain
 func (s *RedisSession) ConfigTokenKeyPrefix(tokenKey string) TokenManage {
 	tokenKey = strings.Replace(tokenKey, "_", "-", -1)
 	s.tokenKey = tokenKey
 	return s
 }
 
-// config by chain
+// ConfigUserKeyPrefix config by chain
 func (s *RedisSession) ConfigUserKeyPrefix(userKey string) TokenManage {
 	userKey = strings.Replace(userKey, "_", "-", -1)
 	s.userKey = userKey
 	return s
 }
 
-// config by chain
+// ConfigDefaultExpireTime config by chain
 func (s *RedisSession) ConfigDefaultExpireTime(second int64) TokenManage {
 	if second <= 0 {
 		return s
@@ -124,7 +124,7 @@ func (s *RedisSession) ConfigDefaultExpireTime(second int64) TokenManage {
 	return s
 }
 
-// config by chain
+// ConfigGetUserInfoFunc config by chain
 func (s *RedisSession) ConfigGetUserInfoFunc(fn GetUserInfoFunc) TokenManage {
 	if fn == nil {
 		return s
@@ -133,13 +133,13 @@ func (s *RedisSession) ConfigGetUserInfoFunc(fn GetUserInfoFunc) TokenManage {
 	return s
 }
 
-// set single mode, new token will destroy other token
+// SetSingleMode set single mode, new token will destroy other token
 func (s *RedisSession) SetSingleMode() TokenManage {
 	s.isSingleMode = true
 	return s
 }
 
-// Set token, expire after some second
+// SetToken Set token, expire after some second
 func (s *RedisSession) SetToken(id string, tokenValidTimes int64) (token string, err error) {
 	// user id can not nil
 	if id == "" {
@@ -202,7 +202,7 @@ func (s *RedisSession) SetToken(id string, tokenValidTimes int64) (token string,
 	return token, nil
 }
 
-// Refresh token，token expire will be again after some second
+// RefreshToken Refresh token，token expire will be again after some second
 func (s *RedisSession) RefreshToken(token string, tokenValidTimes int64) (err error) {
 	if token == "" {
 		err = errors.New("token empty")
@@ -259,7 +259,7 @@ func (s *RedisSession) RefreshToken(token string, tokenValidTimes int64) (err er
 	return
 }
 
-// Delete token when you do action such logout
+// DeleteToken Delete token when you do action such logout
 func (s *RedisSession) DeleteToken(token string) (err error) {
 	if token == "" {
 		err = errors.New("token empty")
@@ -313,7 +313,7 @@ func (s *RedisSession) deleteToken(conn redis.Conn, id string, token string) (er
 	return err
 }
 
-// Check the token, when cache database exist return user info directly,
+// CheckTokenOrUpdateUser Check the token, when cache database exist return user info directly,
 // others hit the persistent database and save newest user in cache database then return. such redis check, not check load from mysql.
 // you can check user info by that token, if s.getUserFunc == nil do nothing
 func (s *RedisSession) CheckTokenOrUpdateUser(token string, userInfoValidTimes int64) (user *User, exist bool, err error) {
@@ -407,7 +407,7 @@ func (s *RedisSession) CheckToken(token string) (user *User, exist bool, err err
 	return s.CheckTokenOrUpdateUser(token, -1)
 }
 
-// Add the user info to cache，expire after some second
+// AddUser Add the user info to cache，expire after some second
 func (s *RedisSession) AddUser(id string, userInfoValidTimes int64) (user *User, exist bool, err error) {
 	if s.getUserFunc == nil {
 		return nil, false, errors.New("getUserFunc nil")
@@ -448,7 +448,7 @@ func (s *RedisSession) AddUser(id string, userInfoValidTimes int64) (user *User,
 	return user, true, nil
 }
 
-// Refresh cache of user info batch
+// RefreshUser Refresh cache of user info batch
 func (s *RedisSession) RefreshUser(ids []string, userInfoValidTimes int64) (err error) {
 	// very rude
 	for _, id := range ids {
@@ -460,7 +460,7 @@ func (s *RedisSession) RefreshUser(ids []string, userInfoValidTimes int64) (err 
 	return nil
 }
 
-// Delete all token of this user
+// DeleteUserToken Delete all token of this user
 func (s *RedisSession) DeleteUserToken(id string) (err error) {
 	if id == "" {
 		err = errors.New("user id empty")
@@ -507,7 +507,7 @@ func (s *RedisSession) DeleteUserToken(id string) (err error) {
 	return
 }
 
-// List all token in one user
+// ListUserToken List all token in one user
 func (s *RedisSession) ListUserToken(id string) ([]string, error) {
 	if id == "" {
 		err := errors.New("user id empty")
@@ -534,7 +534,7 @@ func (s *RedisSession) clearToken(id string) error {
 	return nil
 }
 
-// Delete user info in cache
+// DeleteUser Delete user info in cache
 func (s *RedisSession) DeleteUser(id string) (err error) {
 	if id == "" {
 		err = errors.New("user id empty")

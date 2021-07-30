@@ -10,7 +10,7 @@ func main() {
 	// 1. config redis
 	redisHost := "127.0.0.1:6379"
 	redisDb := 0
-	redisPass := "123456789" // may redis has password
+	redisPass := "hunterhug" // may redis has password
 	redisConfig := gosession.NewRedisSessionSingleModeConfig(redisHost, redisDb, redisPass)
 	// or
 	//gosession.NewRedisSessionSentinelModeConfig(":26379,:26380,:26381",0,"mymaster")
@@ -84,7 +84,7 @@ func main() {
 	fmt.Printf("after refresh token:%#v, %#v,%#v\n", token, u, exist)
 
 	// 7. sleep to see token is exist?
-	time.Sleep(10 * time.Second)
+	time.Sleep(7 * time.Second)
 	u, exist, err = tokenManage.CheckTokenOrUpdateUser(token, userExpireTimeAlone)
 	if err != nil {
 		fmt.Println("sleep check token err:", err.Error())
@@ -101,7 +101,7 @@ func main() {
 	}
 	fmt.Println("sleep token:", tokenList)
 
-	time.Sleep(10 * time.Minute)
+	time.Sleep(1 * time.Second)
 
 	err = tokenManage.DeleteUserToken(id)
 	if err != nil {

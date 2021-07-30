@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// redis config
+// MyRedisConf redis config
 type MyRedisConf struct {
 	RedisHost string `yaml:"host"`
 
@@ -27,7 +27,7 @@ type MyRedisConf struct {
 	MasterName       string `yaml:"master_name"` // sentinel
 }
 
-// new a redis pool
+// NewRedis new a redis pool
 func NewRedis(redisConf *MyRedisConf) (pool *redis.Pool, err error) {
 	// sentinel use other func
 	if redisConf.IsCluster {
@@ -78,8 +78,6 @@ func InitSentinelRedisPool(redisConf *MyRedisConf) (pool *redis.Pool, err error)
 			if err != nil {
 				return
 			}
-
-			//fmt.Println(masterAddr)
 
 			timeout := 1000 * time.Millisecond
 
