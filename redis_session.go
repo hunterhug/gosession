@@ -22,8 +22,9 @@ var (
 	userKeyDefault = "go-u"
 	// default key expire second
 	expireTimeDefault int64 = 3600 * 24 * 7
-	// default get user info func
-	getUserInfoFuncDefault = func(id string) (*User, error) { return &User{Id: id}, nil }
+
+	// GetUserInfoFuncDefault default get user info func
+	GetUserInfoFuncDefault = func(id string) (*User, error) { return &User{Id: id}, nil }
 
 	// TokenMapKeyExpireTime list all token, hash key expire
 	TokenMapKeyExpireTime int64 = 3600 * 24 * 30
