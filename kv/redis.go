@@ -1,10 +1,13 @@
 package kv
 
 import (
+	"errors"
 	"github.com/gomodule/redigo/redis"
 	"strings"
 	"time"
 )
+
+const defaultTimeout = 1
 
 // MyRedisConf redis config
 type MyRedisConf struct {
@@ -23,24 +26,55 @@ type MyRedisConf struct {
 	RedisIdleTimeout int    `yaml:"idle_timeout"`
 	RedisDB          int    `yaml:"database"`
 	RedisPass        string `yaml:"pass"`
-	IsCluster        bool   `yaml:"is_cluster"`  // sentinel
-	MasterName       string `yaml:"master_name"` // sentinel
+
+	// sentinel
+	IsCluster  bool   `yaml:"is_cluster"`
+	MasterName string `yaml:"master_name"`
+
+	// timeout, second
+	DialConnectTimeout int `yaml:"dial_connect_timeout"`
+	DialReadTimeout    int `yaml:"dial_read_timeout"`
+	DialWriteTimeout   int `yaml:"dial_write_timeout"`
 }
 
 // NewRedis new a redis pool
 func NewRedis(redisConf *MyRedisConf) (pool *redis.Pool, err error) {
-	// sentinel use other func
-	if redisConf.IsCluster {
-		return InitSentinelRedisPool(redisConf)
+	if redisConf == nil {
+		return nil, errors.New("config nil")
 	}
+
+	if redisConf.DialConnectTimeout == 0 {
+		redisConf.DialConnectTimeout = defaultTimeout
+	}
+
+	if redisConf.DialReadTimeout == 0 {
+		redisConf.DialReadTimeout = defaultTimeout
+	}
+
+	if redisConf.DialWriteTimeout == 0 {
+		redisConf.DialWriteTimeout = defaultTimeout
+	}
+
+	if redisConf.IsCluster {
+		return initSentinelRedisPool(redisConf)
+	}
+
+	idleTimeout := time.Duration(redisConf.RedisIdleTimeout) * time.Second
+	dialConnectTimeout := time.Duration(redisConf.DialConnectTimeout) * time.Second
+	readTimeout := time.Duration(redisConf.DialReadTimeout) * time.Second
+	writeTimeout := time.Duration(redisConf.DialWriteTimeout) * time.Second
+
 	pool = &redis.Pool{
 		MaxIdle:     redisConf.RedisMaxIdle,
 		MaxActive:   redisConf.RedisMaxActive,
-		IdleTimeout: time.Duration(redisConf.RedisIdleTimeout) * time.Second,
+		IdleTimeout: idleTimeout,
 		Dial: func() (redis.Conn, error) {
-			timeout := 500 * time.Millisecond
-			c, err := redis.Dial("tcp", redisConf.RedisHost, redis.DialPassword(redisConf.RedisPass), redis.DialDatabase(redisConf.RedisDB), redis.DialConnectTimeout(timeout),
-				redis.DialReadTimeout(timeout), redis.DialWriteTimeout(timeout))
+			c, err := redis.Dial("tcp", redisConf.RedisHost,
+				redis.DialPassword(redisConf.RedisPass),
+				redis.DialDatabase(redisConf.RedisDB),
+				redis.DialConnectTimeout(dialConnectTimeout),
+				redis.DialReadTimeout(readTimeout),
+				redis.DialWriteTimeout(writeTimeout))
 			if err != nil {
 				return c, err
 			}
@@ -49,19 +83,30 @@ func NewRedis(redisConf *MyRedisConf) (pool *redis.Pool, err error) {
 	}
 
 	conn := pool.Get()
-	defer conn.Close()
+	defer func(conn redis.Conn) {
+		err := conn.Close()
+		if err != nil {
+		}
+	}(conn)
+
 	_, err = conn.Do("ping")
 	return
 }
 
-func InitSentinelRedisPool(redisConf *MyRedisConf) (pool *redis.Pool, err error) {
+func initSentinelRedisPool(redisConf *MyRedisConf) (pool *redis.Pool, err error) {
+	idleTimeout := time.Duration(redisConf.RedisIdleTimeout) * time.Second
+	dialConnectTimeout := time.Duration(redisConf.DialConnectTimeout) * time.Second
+	readTimeout := time.Duration(redisConf.DialReadTimeout) * time.Second
+	writeTimeout := time.Duration(redisConf.DialWriteTimeout) * time.Second
+
 	s := &Sentinel{
 		Addrs:      strings.Split(redisConf.RedisHost, ","),
 		MasterName: redisConf.MasterName,
 		Dial: func(addr string) (redis.Conn, error) {
-			timeout := 1000 * time.Millisecond
-			c, err := redis.Dial("tcp", addr, redis.DialConnectTimeout(timeout),
-				redis.DialReadTimeout(timeout), redis.DialWriteTimeout(timeout))
+			c, err := redis.Dial("tcp", addr,
+				redis.DialConnectTimeout(dialConnectTimeout),
+				redis.DialReadTimeout(readTimeout),
+				redis.DialWriteTimeout(writeTimeout))
 			if err != nil {
 				return c, err
 			}
@@ -72,28 +117,34 @@ func InitSentinelRedisPool(redisConf *MyRedisConf) (pool *redis.Pool, err error)
 	pool = &redis.Pool{
 		MaxIdle:     redisConf.RedisMaxIdle,
 		MaxActive:   redisConf.RedisMaxActive,
-		IdleTimeout: time.Duration(redisConf.RedisIdleTimeout) * time.Second,
+		IdleTimeout: idleTimeout,
 		Dial: func() (c redis.Conn, err error) {
 			masterAddr, err := s.MasterAddr()
 			if err != nil {
 				return
 			}
 
-			timeout := 1000 * time.Millisecond
-
 			// look for master
-			c, err = redis.Dial("tcp", masterAddr, redis.DialPassword(redisConf.RedisPass), redis.DialConnectTimeout(timeout),
-				redis.DialReadTimeout(timeout), redis.DialWriteTimeout(timeout))
+			c, err = redis.Dial("tcp", masterAddr,
+				redis.DialPassword(redisConf.RedisPass),
+				redis.DialDatabase(redisConf.RedisDB),
+				redis.DialConnectTimeout(dialConnectTimeout),
+				redis.DialReadTimeout(readTimeout),
+				redis.DialWriteTimeout(writeTimeout))
 			if err != nil {
 				return c, err
 			}
-			c.Do("SELECT", redisConf.RedisDB)
+
 			return c, nil
 		},
 	}
 
 	conn := pool.Get()
-	defer conn.Close()
+	defer func(conn redis.Conn) {
+		err := conn.Close()
+		if err != nil {
+		}
+	}(conn)
 
 	_, err = conn.Do("ping")
 	return

@@ -26,8 +26,20 @@ func TestNewRedis(t *testing.T) {
 	}
 
 	con := p.Get()
-	defer con.Close()
-	con.Do("SET", "key", []byte("key1"))
+	defer func(con redis.Conn) {
+		err := con.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}(con)
+
+	do, err := con.Do("SET", "key", []byte("key1"))
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	fmt.Println(do)
 
 	keys, err := redis.ByteSlices(con.Do("KEYS", "*"))
 	if err != nil {
@@ -63,8 +75,20 @@ func TestInitSentinelRedisPool(t *testing.T) {
 	}
 
 	con := p.Get()
-	defer con.Close()
-	con.Do("SET", "key", []byte("key1"))
+	defer func(con redis.Conn) {
+		err := con.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}(con)
+
+	do, err := con.Do("SET", "key", []byte("key1"))
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	fmt.Println(do)
 
 	keys, err := redis.ByteSlices(con.Do("KEYS", "*"))
 	if err != nil {
