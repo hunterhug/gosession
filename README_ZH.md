@@ -59,7 +59,7 @@ type User struct {
 
 简单的例子：
 
-```
+```go
 package main
 
 import (
