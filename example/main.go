@@ -33,6 +33,7 @@ func main() {
 		}, nil
 	} // get user func diy, you can set it nil
 	tokenManage.ConfigGetUserInfoFunc(fn)
+
 	//tokenManage.SetSingleMode()
 
 	// 4. set token
@@ -57,7 +58,10 @@ func main() {
 		fmt.Println("list token err:", err.Error())
 		return
 	}
-	fmt.Println("list token:", tokenList)
+
+	for _, v := range tokenList {
+		fmt.Println("list token:", v)
+	}
 
 	// 6. check token
 	var userExpireTimeAlone int64 = 10 // if ConfigGetUserInfoFunc!=nil, will load user info from func if not exist in redis cache
@@ -83,7 +87,7 @@ func main() {
 
 	fmt.Printf("after refresh token:%#v, %#v,%#v\n", token, u, exist)
 
-	// 7. sleep to see token is exist?
+	// 7. sleep to see token is existed?
 	time.Sleep(7 * time.Second)
 	u, exist, err = tokenManage.CheckTokenOrUpdateUser(token, userExpireTimeAlone)
 	if err != nil {
@@ -99,7 +103,10 @@ func main() {
 		fmt.Println("sleep list token err:", err.Error())
 		return
 	}
-	fmt.Println("sleep token:", tokenList)
+
+	for _, v := range tokenList {
+		fmt.Println("after sleep list token:", v)
+	}
 
 	time.Sleep(1 * time.Second)
 
@@ -114,5 +121,6 @@ func main() {
 		fmt.Println("after delete user token list err:", err.Error())
 		return
 	}
+
 	fmt.Println("after delete user token list:", tokenList)
 }

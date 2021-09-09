@@ -7,7 +7,9 @@
 [![GitHub issues](https://img.shields.io/github/issues/hunterhug/gosession.svg)](https://github.com/hunterhug/gosession/issues)
 
 [English README](/README.md)
- 
+
+开源目的：工作中很多大小项目重复的需要登录注册功能，这是一个要复杂可复杂，要简单可简单的模块，借鉴了非常多的开源项目，于是把一些复用较高的，逻辑性不强，不涉及机密的代码抽离出轮子，回馈社区，感谢大家。
+
 支持多个 `Web` 服务共享 `Session` 令牌 `token`，这样可以实现多个服务间共享状态。
 
 现在 Session 令牌可以存储在：
@@ -55,7 +57,99 @@ type User struct {
 }
 ```
 
-例子：
+简单的例子：
+
+```
+package main
+
+import (
+	"fmt"
+	"github.com/hunterhug/gosession"
+)
+
+func main() {
+	tokenManage, err := gosession.NewRedisSessionSimple("127.0.0.1:6379", 0, "hunterhug")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	userId := "000001"
+	token, err := tokenManage.SetToken(userId, 20)
+	if err != nil {
+		fmt.Println("set token err:", err.Error())
+		return
+	}
+	fmt.Println("set token:", userId, token)
+
+	user, exist, err := tokenManage.CheckToken(token)
+	if err != nil {
+		fmt.Println("check token err:", err.Error())
+		return
+	}
+
+	if exist {
+		fmt.Printf("check token exist: %#v\n", user)
+	} else {
+		fmt.Println("check token not exist")
+	}
+
+	err = tokenManage.DeleteToken(token)
+	if err != nil {
+		fmt.Println("delete token err:", err.Error())
+		return
+	} else {
+		fmt.Println("delete token:", token)
+	}
+
+	user, exist, err = tokenManage.CheckToken(token)
+	if err != nil {
+		fmt.Println("after delete check token err:", err.Error())
+		return
+	}
+
+	if exist {
+		fmt.Printf("after delete check delete token exist: %#v\n", user)
+	} else {
+		fmt.Println("after delete check delete token not exist")
+	}
+
+	tokenManage.SetToken(userId, 20)
+	tokenManage.SetToken(userId, 20)
+	tokenManage.SetToken(userId, 20)
+	tokenManage.SetToken(userId, 20)
+
+	tokenList, err := tokenManage.ListUserToken(userId)
+	if err != nil {
+		fmt.Println("list token err:", err.Error())
+		return
+	}
+
+	for _, v := range tokenList {
+		fmt.Println("list token:", v)
+	}
+
+	err = tokenManage.DeleteUserToken(userId)
+	if err != nil {
+		fmt.Println("delete user all token err:", err.Error())
+		return
+	} else {
+		fmt.Println("delete user all token")
+	}
+
+	tokenList, err = tokenManage.ListUserToken(userId)
+	if err != nil {
+		fmt.Println("after delete user all list token err:", err.Error())
+		return
+	}
+
+	if len(tokenList) == 0 {
+		fmt.Println("user token empty")
+	}
+}
+```
+
+另外一个带有解释的例子：
 
 ```go
 package main
@@ -86,6 +180,7 @@ func main() {
 	tokenManage.ConfigDefaultExpireTime(600)
 	tokenManage.ConfigUserKeyPrefix("go-user")
 	tokenManage.ConfigTokenKeyPrefix("go-token")
+	
 	fn := func(id string) (user *gosession.User, err error) {
 		return &gosession.User{
 			Id:     id,
@@ -93,6 +188,7 @@ func main() {
 		}, nil
 	} // 可以设置获取用户信息的函数，如果用户没有缓存，会从该函数加载后存进redis，允许nil
 	tokenManage.ConfigGetUserInfoFunc(fn)
+	
 	//tokenManage.SetSingleMode() // 你可以设置单点的token
 
 	// 4. 为某用户设置Token
@@ -176,6 +272,12 @@ func main() {
 	fmt.Println("after delete user token list:", tokenList)
 }
 ```
+
+# 待做事项
+
+1. 支持 JWT（JSON Web Token），特点是可以将部分客户端需要知道的信息保存在令牌里面，客户端可以无状态就发现令牌过期而不需要调用服务端。原理见：[博客](https://www.lenggirl.com/micro/auth-jwt.html) 。
+2. 支持存储在 MySQL 或者 Mongo ，好处是排序，数据转移较容易，可以做更多业务操作。
+3. 支持多客户端的一些资源隔离，主要是业务上的，比如 Android，IOS，Web端的多点和单点登录，以及审计的记录。
 
 # License
 

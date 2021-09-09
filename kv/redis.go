@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-const defaultTimeout = 1
+// MyRedisDefaultTimeout default global connect ing timeout
+var MyRedisDefaultTimeout = 1
 
 // MyRedisConf redis config
 type MyRedisConf struct {
@@ -37,6 +38,54 @@ type MyRedisConf struct {
 	DialWriteTimeout   int `yaml:"dial_write_timeout"`
 }
 
+func (c *MyRedisConf) SetRedisHost(redisHost string) *MyRedisConf {
+	c.RedisHost = redisHost
+	return c
+}
+
+func (c *MyRedisConf) SetRedisMaxIdle(redisMaxIdle int) *MyRedisConf {
+	c.RedisMaxIdle = redisMaxIdle
+	return c
+}
+
+func (c *MyRedisConf) SetRedisMaxActive(redisMaxActive int) *MyRedisConf {
+	c.RedisMaxActive = redisMaxActive
+	return c
+}
+
+func (c *MyRedisConf) SetRedisIdleTimeout(redisIdleTimeout int) *MyRedisConf {
+	c.RedisIdleTimeout = redisIdleTimeout
+	return c
+}
+
+func (c *MyRedisConf) SetRedisDB(redisDB int) *MyRedisConf {
+	c.RedisDB = redisDB
+	return c
+}
+
+func (c *MyRedisConf) SetRedisPass(redisPass string) *MyRedisConf {
+	c.RedisPass = redisPass
+	return c
+}
+
+func (c *MyRedisConf) SetDialConnectTimeout(dialConnectTimeout int) *MyRedisConf {
+	c.DialConnectTimeout = dialConnectTimeout
+	return c
+}
+
+func (c *MyRedisConf) SetDialReadTimeoutB(dialReadTimeout int) *MyRedisConf {
+	c.DialReadTimeout = dialReadTimeout
+	return c
+}
+
+func (c *MyRedisConf) SetDialWriteTimeout(dialWriteTimeout int) *MyRedisConf {
+	c.DialWriteTimeout = dialWriteTimeout
+	return c
+}
+
+// NewRedisPool alias NewRedis
+var NewRedisPool = NewRedis
+
 // NewRedis new a redis pool
 func NewRedis(redisConf *MyRedisConf) (pool *redis.Pool, err error) {
 	if redisConf == nil {
@@ -44,15 +93,15 @@ func NewRedis(redisConf *MyRedisConf) (pool *redis.Pool, err error) {
 	}
 
 	if redisConf.DialConnectTimeout == 0 {
-		redisConf.DialConnectTimeout = defaultTimeout
+		redisConf.DialConnectTimeout = MyRedisDefaultTimeout
 	}
 
 	if redisConf.DialReadTimeout == 0 {
-		redisConf.DialReadTimeout = defaultTimeout
+		redisConf.DialReadTimeout = MyRedisDefaultTimeout
 	}
 
 	if redisConf.DialWriteTimeout == 0 {
-		redisConf.DialWriteTimeout = defaultTimeout
+		redisConf.DialWriteTimeout = MyRedisDefaultTimeout
 	}
 
 	if redisConf.IsCluster {
