@@ -275,7 +275,7 @@ func main() {
 
 # 待做事项
 
-1. 支持 JWT（JSON Web Token），特点是可以将部分客户端需要知道的信息保存在令牌里面，客户端可以无状态就发现令牌过期而不需要调用服务端。原理见：[博客](https://www.lenggirl.com/micro/auth-jwt.html) 。
+1. 支持 JWT（JSON Web Token），特点是可以将部分客户端需要知道的信息保存在令牌里面，客户端可以无状态就发现令牌过期而不需要调用服务端。原理见：[博客-认证/授权和JSON Web Token (JWT)原理](https://hunterhug.gitlab.io/blog/micro/auth-jwt.html) 。
 2. 支持存储在 MySQL 或者 Mongo ，好处是排序，数据转移较容易，可以做更多业务操作。
 3. 支持多客户端的一些资源隔离，主要是业务上的，比如 Android，IOS，Web端的多点和单点登录，以及审计的记录。
 
